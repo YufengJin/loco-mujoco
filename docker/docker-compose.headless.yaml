@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  loco-mujoco:
+    container_name: loco-mujoco_container
+    image: ${IMAGE:-loco-mujoco:latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    volumes:
+      - ../:/workspace
+      - ../.hf_cache:/root/.cache/huggingface
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      - GPU=${GPU:-all}
+      - HF_HOME=/root/.cache/huggingface
+      - LOCO_AUTO_MYO=${LOCO_AUTO_MYO:-0}
+      - MUJOCO_GL=${MUJOCO_GL:-egl}
+      - WANDB_MODE=${WANDB_MODE:-disabled}
+    command: tail -f /dev/null
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
