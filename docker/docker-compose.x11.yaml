@@ -3,7 +3,7 @@ version: "3.9"
 services:
   loco-mujoco:
     container_name: loco-mujoco_container
-    image: ${IMAGE:-loco-mujoco:latest}
+    image: ${IMAGE:-yufengjin/loco-mujoco:latest}
     build:
       context: ..
       dockerfile: docker/Dockerfile
