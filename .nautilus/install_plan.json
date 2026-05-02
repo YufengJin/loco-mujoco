@@ -1,0 +1,54 @@
+{
+  "primary_install_strategy": "uv-sync-frozen",
+  "system_apt_packages": [
+    "curl", "bzip2", "ca-certificates", "git", "build-essential",
+    "libgl1", "libglib2.0-0", "libx11-6", "libxext6", "libxrender1",
+    "libsm6", "libegl1", "libosmesa6", "ffmpeg",
+    "lsof", "psmisc", "tmux", "vim", "x11-apps"
+  ],
+  "third_party_clones": [],
+  "installation_steps": [
+    {
+      "kind": "uv_sync",
+      "args": ["--frozen", "--no-install-project", "--active"]
+    },
+    {
+      "kind": "uv_pip_install",
+      "args": ["jax[cuda12]"]
+    },
+    {
+      "kind": "uv_pip_install",
+      "args": ["wandb"]
+    },
+    {
+      "kind": "uv_pip_install",
+      "args": ["imageio[ffmpeg]"]
+    }
+  ],
+  "post_install_hooks": [],
+  "runtime_mounts": [],
+  "runtime_env_vars": [
+    {
+      "key": "MUJOCO_GL",
+      "value": "egl",
+      "evidence": "MuJoCo headless rendering backend; x11 compose overrides to glfw"
+    },
+    {
+      "key": "HF_HOME",
+      "value": "/root/.cache/huggingface",
+      "evidence": "HuggingFace cache location for lazy dataset downloads"
+    }
+  ],
+  "evidence": {
+    "readme_quotes": [
+      "Clone this repo and do an editable installation: pip install -e .",
+      "If you want to use Jax on the GPU, you need to install the following: pip install jax[\"cuda12\"]",
+      "LocoMuJoCo provides three sources of motion capture (mocap) data... will downloaded and cached automatically for you."
+    ],
+    "ambiguities": [
+      "CUDA version: README does not pin a CUDA version. Probe detected host driver capability CUDA 12.8 — using jax[cuda12] wheel to match. Base image uses nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04.",
+      "PyTorch not required for core benchmark (only optional smpl extra); no torch dep in install plan.",
+      "wandb and imageio[ffmpeg] are not in core deps but are required for training examples and video recording respectively."
+    ]
+  }
+}

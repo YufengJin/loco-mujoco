@@ -1,44 +1,36 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-/opt/venv}"
+# Sync sentinel for setup.sh (IsaacGym workflow). Harmless when no setup.sh
+# is reading it — just an empty file in /tmp that gets touched at end.
+rm -f /tmp/entrypoint_done
 
-cd /workspace
+export PATH="/opt/venv/bin:/usr/local/bin:${PATH:-/usr/bin:/bin}"
+export VIRTUAL_ENV="/opt/venv"
 
-# Determine loco-mujoco project root (may be /workspace/loco-mujoco when parent is mounted)
-LOCO_ROOT=""
-if [ -f /workspace/loco-mujoco/setup.py ]; then
-  LOCO_ROOT="/workspace/loco-mujoco"
-elif [ -f /workspace/setup.py ]; then
-  LOCO_ROOT="/workspace"
+# ── 1. Editable install (project mounted at /workspace/loco-mujoco) ─────
+# Both branches resolve install_requires by default. If you need --no-deps
+# (e.g. to avoid uv re-resolving heavy science stack), add a `post_install_hooks`
+# entry to install_plan.json that re-runs the install with --no-deps.
+if [ -f "/workspace/loco-mujoco/pyproject.toml" ]; then
+    echo ">> Installing editable package (pyproject.toml)..."
+    cd /workspace/loco-mujoco && uv pip install -e . --index-strategy unsafe-best-match && cd - > /dev/null
+elif [ -f "/workspace/loco-mujoco/setup.py" ]; then
+    echo ">> Installing editable package (setup.py)..."
+    cd /workspace/loco-mujoco && uv pip install -e . --index-strategy unsafe-best-match && cd - > /dev/null
 fi
 
-if [ -n "${LOCO_ROOT}" ]; then
-  echo "Installing loco-mujoco from ${LOCO_ROOT} (editable)..."
-  uv pip install -e "${LOCO_ROOT}"
+# ── 2. Post-install hooks from InstallationPlan ──────────────────────────────
+# Rendered by render_base.py from <repo>/.nautilus/install_plan.json's
+# `post_install_hooks`. `when=first_run` entries are wrapped in a sentinel
+# guard; `when=every_run` entries fire on every container start.
 
-  # Trigger first-import so loco_mujoco/__init__.py writes LOCOMUJOCO_VARIABLES.yaml
-  # and ~/.loco-mujoco-caches/models is created. This is non-interactive.
-  python -c "import loco_mujoco" >/dev/null 2>&1 || true
 
-  # MyoSkeleton model is opt-in (license acceptance required).
-  # Set LOCO_AUTO_MYO=1 to auto-accept and fetch; otherwise just print a hint.
-  if [ "${LOCO_AUTO_MYO:-0}" = "1" ]; then
-    echo "LOCO_AUTO_MYO=1 set — running loco-mujoco-myomodel-init..."
-    yes | loco-mujoco-myomodel-init || true
-  fi
+# 
+# Slot for downstream sub-skills to inject project-specific steps.
 
-  # Dataset presence hints (do not force-download)
-  HF_CACHE="${HF_HOME:-/root/.cache/huggingface}"
-  if [ ! -d "${HF_CACHE}/datasets" ] || [ -z "$(ls -A "${HF_CACHE}/datasets" 2>/dev/null)" ]; then
-    echo "[INFO] No HuggingFace datasets cached yet at ${HF_CACHE}/datasets."
-    echo "       Run one of: loco-mujoco-download / loco-mujoco-download-real / loco-mujoco-download-perfect"
-    echo "       Or let ImitationFactory.make(...) pull on first use."
-  fi
-fi
+# <<<EXTENSION_ENTRYPOINT_INSERT_ABOVE>>> — sub-skills insert pre-exec hooks above this line
 
-if [ $# -eq 0 ]; then
-  exec bash
-else
-  exec "$@"
-fi
+echo ">> Ready."
+touch /tmp/entrypoint_done
+exec "$@"
