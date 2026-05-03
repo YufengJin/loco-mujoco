@@ -22,9 +22,7 @@ docker compose -f docker/docker-compose.headless.yaml build
 
 Base image: `nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04`
 Python: `3.10` (managed by `uv` in `/opt/venv`)
-Install strategy: `uv sync --frozen (uv.lock present)`
-
-JAX with CUDA 12 wheels (`jax[cuda12]`), `wandb`, and `imageio[ffmpeg]` are layered on top of the locked `uv.lock`. A `LD_LIBRARY_PATH` entry in the Dockerfile exposes the pip-installed `nvidia/*/lib` directories to JAX's CUDA plugin (required for JAX 0.6.x with non-default venv paths).
+Install strategy: `uv-sync-frozen` + `jax[cuda12]`, `wandb`, `imageio[ffmpeg]`
 
 ## Bring the container up
 
@@ -46,30 +44,31 @@ Only one of the two profiles may run at a time — they share the container name
 
 ```bash
 nvidia-smi
-python -c "import jax; print(jax.devices(), jax.default_backend())"
+python -c "import jax; print(jax.__version__, jax.devices())"
 python -c "import loco_mujoco; print(loco_mujoco.__file__)"
 ```
 
 The last line must resolve under `/workspace/loco-mujoco/` — this proves that the mounted source is the one the interpreter imports (editable install succeeded).
 
-The JAX backend must report `gpu` and list at least one `CudaDevice`. The previous `torch.cuda` check does not apply — this repo uses JAX for GPU acceleration, not PyTorch.
-
-## Optional dataset / model bootstrap
-
-```bash
-# Download default + LAFAN1 motion-capture datasets (cached to .hf_cache/ bind mount):
-loco-mujoco-download
-
-# Accept the MyoSkeleton license and download the model (optional):
-loco-mujoco-myomodel-init
-# Or set LOCO_AUTO_MYO=1 in docker-compose.headless.yaml to auto-accept on start.
-
-# Cache forward-kinematics results for faster dataset loading (optional):
-loco-mujoco-set-all-caches --path "$HOME/.loco-mujoco-caches"
-```
+Note: This project uses JAX (not PyTorch) for GPU-accelerated training. Use the JAX check above instead of the torch CUDA check.
 
 ## Stop / clean up
 
 ```bash
 docker compose -f docker/docker-compose.headless.yaml down
+```
+
+## Additional first-run steps
+
+The default dataset (loco-mujoco-datasets on HuggingFace) is downloaded automatically on first use. To pre-warm the cache:
+
+```bash
+# inside container
+python -c "from loco_mujoco.task_factories import ImitationFactory, DefaultDatasetConf; ImitationFactory.make('UnitreeH1', default_dataset_conf=DefaultDatasetConf(['squat']))"
+```
+
+To enable dataset caching for faster loading:
+
+```bash
+loco-mujoco-set-all-caches --path "$HOME/.loco-mujoco-caches"
 ```

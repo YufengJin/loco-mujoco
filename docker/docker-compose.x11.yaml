@@ -13,7 +13,7 @@ services:
       dockerfile: docker/Dockerfile
     # Default image tag for local from-scratch builds. Override with `IMAGE=...`
     # to point at a registry tag (e.g. `IMAGE=<hub-user>/loco-mujoco:latest docker compose up`).
-    image: ${IMAGE:-yufengjin/loco-mujoco:latest}
+    image: ${IMAGE:-loco-mujoco:local}
     container_name: loco-mujoco-gui
     restart: unless-stopped
     tty: true
